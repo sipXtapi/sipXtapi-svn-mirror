@@ -639,24 +639,33 @@ UtlBoolean MprRecorder::doProcessFrame(MpBufPtr inBufs[],
 
 int MprRecorder::writeCircularBuffer(const char* channelData[], int dataSize)
 {
-    OsSysLog::add(FAC_MP, PRI_INFO, "MprRecorder::doProcessFrame - TO_CIRCULAR_BUFFER, non-silence");
+    //OsSysLog::add(FAC_MP, PRI_INFO, "MprRecorder::doProcessFrame - TO_CIRCULAR_BUFFER, non-silence");
     
-    unsigned long newSize, previousSize, iterPreviousSize;
-    int bytesPerSample = getBytesPerSample(mRecFormat);
-    assert(bytesPerSample > 0);
-
-    int dataIndex;
-    int channelIndex;
-    if(bytesPerSample > 0)
+    unsigned long newSize, previousSize;
+    if (mChannels == 1)
     {
-        for(dataIndex = 0; dataIndex < dataSize; dataIndex += bytesPerSample)
+        // Be as efficient as possible for one channel (no interleaving needed)
+        mpCircularBuffer->write(channelData[0], dataSize, &newSize, &previousSize);
+    }
+    else
+    {
+        unsigned long iterPreviousSize;
+        int bytesPerSample = getBytesPerSample(mRecFormat);
+        assert(bytesPerSample > 0);
+
+        int dataIndex;
+        int channelIndex;
+        if(bytesPerSample > 0)
         {
-            for(channelIndex = 0; channelIndex < mChannels; channelIndex++)
+            for(dataIndex = 0; dataIndex < dataSize; dataIndex += bytesPerSample)
             {
-                mpCircularBuffer->write(&((channelData[channelIndex])[dataIndex]), bytesPerSample, &newSize, &iterPreviousSize);
-                if(dataIndex == 0)
+                for(channelIndex = 0; channelIndex < mChannels; channelIndex++)
                 {
-                    previousSize = iterPreviousSize;
+                    mpCircularBuffer->write(&((channelData[channelIndex])[dataIndex]), bytesPerSample, &newSize, &iterPreviousSize);
+                    if(dataIndex == 0)
+                    {
+                        previousSize = iterPreviousSize;
+                    }
                 }
             }
         }
